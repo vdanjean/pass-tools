@@ -1,0 +1,158 @@
+#!/usr/bin/perl
+
+use strict;
+use Getopt::Long;
+use Pod::Usage;
+
+=pod
+
+=head1 NAME
+
+createpass - Create derivating passwords from a master one
+
+=head1 SYNOPSIS
+
+createpass [options]
+
+=cut
+
+my $man = 0;
+my $help = 0;
+my $master;
+my $domain;
+my $user;
+my $info;
+my $algo="SHA-512";
+
+=pod
+
+=head1 OPTIONS
+ 
+=over 8
+
+=item B<--man>
+Prints the manual page and exits.
+
+=item B<--help>
+Print a brief help message and exits.
+
+=item B<--length>
+num length of generated password (default 8)
+
+=item B<--master str>
+master password (required)
+
+=item B<--user str>
+user to target
+
+=item B<--domain str>
+domain to target
+
+=item B<--info str>
+info to target
+
+=item B<--algo str>
+algo to use to hash the password (default to SHA-512)
+
+=back
+
+=cut
+
+my $opts={
+
+	'man' => \$man,
+	'help'=> \$help,
+	'length' => 8,
+	'master' => \$master,
+	'domain' => \$domain,
+	'user' => \$user,
+	'info' => \$info,
+	'algo' => \$algo,
+};
+
+GetOptions($opts, 'help|h', 'man', 'length=i', 'master=s', 'rules=s',
+	'domain=s', 'info=s', 'algo=s', 'user=s'
+	 ) or pod2usage(2);
+pod2usage(1) if $help;
+pod2usage(-exitval => 0, -verbose => 2) if $man;
+
+sub getpass($) {
+	my $prompt=shift;
+	$|=1; #Turn on AutoFlush
+	use Term::ReadKey;
+	
+	print "$prompt";
+	ReadMode('noecho');
+	ReadMode('raw');
+	my $pass = '';
+	
+	while (1) {
+		my $c;
+		1 until defined($c = ReadKey(-1));
+		last if $c eq "\n";
+		print "*";
+		$pass .= $c;
+	}
+	
+	ReadMode('restore');
+	print "\n";
+	return $pass;
+}
+
+if (!defined($master)) {
+	my ($pass1, $pass2);
+	while(1) {
+		$pass1=getpass("Master password : ");
+		$pass2=getpass("Master password again : ");
+		last if ($pass1 eq $pass2);
+		print "Different password, try again\n";
+	}
+	$master=$pass1;
+	#print "[$pass]\n";
+}
+
+sub compute_pass($$) {
+	my $master=shift;
+	my $part=shift;
+	
+	my $combined=$master."\n".$part."\n";
+	
+	if (uc($algo) eq 'MD5SUM') {
+		use Digest::MD5 qw(md5_base64);
+		$combined=md5_base64($combined);
+	} else {
+		use Digest::SHA;
+		#print "algo: $algo\n";
+		my $d=Digest::SHA->new($algo);
+		$d->add($combined);
+		$combined=$d->b64digest();
+	}		
+	return $combined;
+}
+
+if (defined($user)) {
+	$master=compute_pass($master, $user);
+}
+if (defined($domain)) {
+	$master=compute_pass($master, $domain);
+}
+if (defined($info)) {
+	$master=compute_pass($master, $info);
+}
+
+$master=substr($master, 1, $opts->{'length'});
+
+open PIPE, "| xclip -verbose";
+print PIPE "$master";
+close(PIPE);
+__END__
+
+=pod
+
+=head1 DESCRIPTION
+
+B<This program> will read the given input file(s) and do something
+useful with the contents thereof.
+
+=cut
+
