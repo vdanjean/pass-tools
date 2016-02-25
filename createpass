@@ -18,6 +18,9 @@ createpass [options]
 
 my $man = 0;
 my $help = 0;
+my $twice = 0;
+my $batch = 0;
+my $visible = 0;
 my $master;
 my $domain;
 my $user;
@@ -27,7 +30,7 @@ my $algo="SHA-512";
 =pod
 
 =head1 OPTIONS
- 
+
 =over 8
 
 =item B<--man>
@@ -54,6 +57,16 @@ info to target
 =item B<--algo str>
 algo to use to hash the password (default to SHA-512)
 
+=item B<--twice>
+prompt password twice
+
+=item B<--batch>
+batch mode: generate several passwords with one master
+
+
+=item B<--visible>
+print generated password to screen instead of copying it to clipboard
+
 =back
 
 =cut
@@ -68,10 +81,13 @@ my $opts={
 	'user' => \$user,
 	'info' => \$info,
 	'algo' => \$algo,
+    'twice'=> \$twice,
+    'batch' => \$batch,
+    'visible' => \$visible,
 };
 
 GetOptions($opts, 'help|h', 'man', 'length=i', 'master=s', 'rules=s',
-	'domain=s', 'info=s', 'algo=s', 'user=s'
+	'domain=s', 'info=s', 'algo=s', 'user=s', 'twice|t','batch|b', 'visible|v',
 	 ) or pod2usage(2);
 pod2usage(1) if $help;
 pod2usage(-exitval => 0, -verbose => 2) if $man;
@@ -80,12 +96,12 @@ sub getpass($) {
 	my $prompt=shift;
 	$|=1; #Turn on AutoFlush
 	use Term::ReadKey;
-	
+
 	print "$prompt";
 	ReadMode('noecho');
 	ReadMode('raw');
 	my $pass = '';
-	
+
 	while (1) {
 		my $c;
 		1 until defined($c = ReadKey(-1));
@@ -93,30 +109,18 @@ sub getpass($) {
 		print "*";
 		$pass .= $c;
 	}
-	
+
 	ReadMode('restore');
 	print "\n";
 	return $pass;
 }
 
-if (!defined($master)) {
-	my ($pass1, $pass2);
-	while(1) {
-		$pass1=getpass("Master password : ");
-		$pass2=getpass("Master password again : ");
-		last if ($pass1 eq $pass2);
-		print "Different password, try again\n";
-	}
-	$master=$pass1;
-	#print "[$pass]\n";
-}
-
 sub compute_pass($$) {
 	my $master=shift;
 	my $part=shift;
-	
+
 	my $combined=$master."\n".$part."\n";
-	
+
 	if (uc($algo) eq 'MD5SUM') {
 		use Digest::MD5 qw(md5_base64);
 		$combined=md5_base64($combined);
@@ -126,25 +130,84 @@ sub compute_pass($$) {
 		my $d=Digest::SHA->new($algo);
 		$d->add($combined);
 		$combined=$d->b64digest();
-	}		
+	}
 	return $combined;
 }
 
-if (defined($user)) {
-	$master=compute_pass($master, $user);
-}
-if (defined($domain)) {
-	$master=compute_pass($master, $domain);
-}
-if (defined($info)) {
-	$master=compute_pass($master, $info);
+sub generate_pass($){
+    my $master=shift;
+
+    if (defined($user)) {
+    	$master=compute_pass($master, $user);
+    }
+    if (defined($domain)) {
+    	$master=compute_pass($master, $domain);
+    }
+    if (defined($info)) {
+    	$master=compute_pass($master, $info);
+    }
+
+    $master=substr($master, 1, $opts->{'length'});
+    return $master
 }
 
-$master=substr($master, 1, $opts->{'length'});
+sub get_input($$){
+    my $ret=shift;
+    my $name=shift;
+    print "$name [$ret] : ";
+    my $line=<STDIN>;
+    chomp($line);
+    unless ($line eq ""){$ret=$line;};
+    return $ret;
+}
 
-open PIPE, "| xclip -verbose";
-print PIPE "$master";
-close(PIPE);
+sub set_master(){
+    if (!defined($master)) {
+    	my ($pass1, $pass2);
+    	while(1) {
+    		$pass1=getpass("Master password : ");
+            last if( $twice eq 0);
+    		$pass2=getpass("Master password again : ");
+    		last if ($pass1 eq $pass2);
+    		print "Different password, try again\n";
+    	}
+    	$master=$pass1;
+    }
+}
+
+my $continue=0;
+while($continue ge 0){
+    if($user eq "" || $domain eq ""  || $continue > 0){
+        $user=get_input($user, "Username");
+        $domain=get_input($domain, "Domain");
+        $info=get_input($info, "Info");
+    }
+    set_master();
+    if($visible eq 0){
+        print "Password copied to clipboard, use middle click to paste it.\n";
+        my $pid=fork();
+        if($pid eq 0){
+            open PIPE, "| xclip -verbose";
+            print PIPE generate_pass($master);
+            close(PIPE);
+        }else{
+            my $old=$SIG{INT};
+            $SIG{INT} = sub { print "\n"; };
+            wait;
+            $SIG{INT}=$old;
+        }
+    }else{
+        print generate_pass($master), "\n";
+    }
+    if($batch eq 0){
+        $continue=-1;
+    }else{
+        $continue++;
+        print "Exit batch mode [Y/n] : ";
+        my $answer=<STDIN>;
+        unless ($answer =~ /^[Nn][Oo]?$/){$continue=-1;};
+    }
+}
 __END__
 
 =pod
