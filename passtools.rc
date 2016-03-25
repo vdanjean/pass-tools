@@ -1,0 +1,42 @@
+# Copyright (C) 2016  Beniamine, David <David@Beniamine.net>
+# Author: Beniamine, David <David@Beniamine.net>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# This is a passtool sample configuration file
+# To use it, copy to $HOME/.passtools.rc
+
+%CFG = (
+    # A list of usernames you often use, will be used for completion
+    'USERS' => [
+        ''
+    ],
+    # A list of domains you often connect to, will be used for completion
+    'DOMAINS' =>[
+        ''
+    ],    # A list of additional infos you often give to passtools, will be used for completion
+    'INFOS' =>[
+        '',
+    ],
+    # The default length of your passwords
+    'length' => 8,
+    # Use batch mode by default (0|1)
+    'batch' => 0,
+    # Ask twice for passwords by default
+    'twice' => 0,
+    # Show password by default (0|1)
+    'visible' => 0,
+    # Algorithm used for hash
+    'algo' => "SHA-512",
+);

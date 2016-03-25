@@ -3,6 +3,7 @@
 use strict;
 use Getopt::Long;
 use Pod::Usage;
+use Term::Complete;
 
 =pod
 
@@ -21,6 +22,7 @@ my $help = 0;
 my $twice = 0;
 my $batch = 0;
 my $visible = 0;
+my $length = 8;
 my $master;
 my $domain;
 my $user;
@@ -71,11 +73,51 @@ print generated password to screen instead of copying it to clipboard
 
 =cut
 
-my $opts={
+my @USERS=('');
+my @DOMAINS=('');
+my @INFOS=('');
 
+# Read configuration file
+sub readConf() {
+    my $confFile=$ENV{"HOME"}.'/.passtools.rc';
+    if (! -e $confFile){
+        return "No config file";
+    }
+    # Put config data into a separate namespace
+    # Process the contents of the config file
+    our $err;
+    {
+        package CFG;
+        my $rc = do($confFile);
+        # Check for errors
+        if ($@) {
+            $::err = "ERROR: Failure compiling '$confFile' - $@";
+        } elsif (! defined($rc)) {
+            $err = "ERROR: Failure reading '$confFile' - $!";
+        } elsif (! $rc) {
+            $::err = "ERROR: Failure processing '$confFile'";
+        }
+    }
+    if($err){
+        print(STDERR $err,"\n");
+        exit(1);
+    }
+    # Update config
+    @USERS=@{$CFG::CFG{'USERS'}};
+    @DOMAINS=@{$CFG::CFG{'DOMAINS'}};
+    @INFOS=@{$CFG::CFG{'INFOS'}};
+    $length=$CFG::CFG{'length'};
+    $batch=$CFG::CFG{'batch'};
+    $twice=$CFG::CFG{'twice'};
+    $visible=$CFG::CFG{'visible'};
+    $algo=$CFG::CFG{'algo'};
+}
+readConf();
+
+my $opts={
 	'man' => \$man,
 	'help'=> \$help,
-	'length' => 8,
+	'length' => \$length,
 	'master' => \$master,
 	'domain' => \$domain,
 	'user' => \$user,
@@ -147,15 +189,15 @@ sub generate_pass($){
     	$master=compute_pass($master, $info);
     }
 
-    $master=substr($master, 1, $opts->{'length'});
+    $master=substr($master, 1, $length);
     return $master
 }
 
-sub get_input($$){
+sub get_input($$@){
     my $ret=shift;
     my $name=shift;
-    print "$name [$ret] : ";
-    my $line=<STDIN>;
+    my @COMPL=shift;
+    my $line= Complete("$name [$ret] : ",@COMPL);
     chomp($line);
     unless ($line eq ""){$ret=$line;};
     return $ret;
@@ -178,9 +220,9 @@ sub set_master(){
 my $continue=0;
 while($continue ge 0){
     if($user eq "" || $domain eq ""  || $continue > 0){
-        $user=get_input($user, "Username");
-        $domain=get_input($domain, "Domain");
-        $info=get_input($info, "Info");
+        $user=get_input($user, "Username", \@USERS);
+        $domain=get_input($domain, "Domain", \@DOMAINS);
+        $info=get_input($info, "Info", \@INFOS);
     }
     set_master();
     if($visible eq 0){
