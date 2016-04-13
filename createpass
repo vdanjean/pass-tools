@@ -4,6 +4,10 @@ use strict;
 use Getopt::Long;
 use Pod::Usage;
 use Term::Complete;
+use File::BaseDir qw(config_home config_dirs);
+use File::Path "make_path";
+use File::Copy "move";
+use Path::Class;
 
 =pod
 
@@ -77,10 +81,32 @@ my @USERS=('');
 my @DOMAINS=('');
 my @INFOS=('');
 
+sub migrateOldConf() {
+    my $xdg_conffile=config_home('passtools', 'config.rc');
+    my $old_conffile=file($ENV{"HOME"},'.passtools.rc');
+
+    if (-e $old_conffile && ! -e $xdg_conffile) {
+	print STDERR "Moving old conffile to XDG compliant path\n",
+	    "('$old_conffile' => '$xdg_conffile')\n";
+	make_path(config_home('passtools'));
+	move($old_conffile, $xdg_conffile) or
+	    die "Cannot rename $old_conffile into $xdg_conffile: $!";
+    }
+}
+
 # Read configuration file
 sub readConf() {
-    my $confFile=$ENV{"HOME"}.'/.passtools.rc';
-    if (! -e $confFile){
+    my @confdirs=config_dirs('passtools');
+    my $confFile;
+    foreach my $dir (@confdirs) {
+	$confFile=file($dir, 'config.rc');
+	my $st=$confFile->stat;
+	if ( $st && -r $st ) {
+	    last;
+	}
+	$confFile=undef;
+    }
+    if (not defined($confFile)){
         return "No config file";
     }
     # Put config data into a separate namespace
@@ -112,6 +138,7 @@ sub readConf() {
     $visible=$CFG::CFG{'visible'};
     $algo=$CFG::CFG{'algo'};
 }
+migrateOldConf();
 readConf();
 
 my $opts={
