@@ -27,6 +27,8 @@ my $master;
 my $domain;
 my $user;
 my $info;
+my $key;
+my $nokey;
 my $algo="SHA-512";
 
 =pod
@@ -55,6 +57,9 @@ domain to target
 
 =item B<--info str>
 info to target
+
+=item B<--no-key>
+ignore key defined in ~/.passtools.rc (usefull for password update)
 
 =item B<--algo str>
 algo to use to hash the password (default to SHA-512)
@@ -111,6 +116,7 @@ sub readConf() {
     $twice=$CFG::CFG{'twice'};
     $visible=$CFG::CFG{'visible'};
     $algo=$CFG::CFG{'algo'};
+    $key=$CFG::CFG{'key'};
 }
 readConf();
 
@@ -126,11 +132,12 @@ my $opts={
     'twice'=> \$twice,
     'batch' => \$batch,
     'visible' => \$visible,
+    'no-key' => \$nokey,
 };
 
 GetOptions($opts, 'help|h', 'man', 'length=i', 'master=s', 'rules=s',
 	'domain=s', 'info=s', 'algo=s', 'user=s', 'twice|t','batch|b', 'visible|v',
-	 ) or pod2usage(2);
+    'no-key|K') or pod2usage(2);
 pod2usage(1) if $help;
 pod2usage(-exitval => 0, -verbose => 2) if $man;
 
@@ -187,6 +194,9 @@ sub generate_pass($){
     }
     if (defined($info)) {
     	$master=compute_pass($master, $info);
+    }
+    if (!defined($nokey) && defined($key) && $key ne '') {
+    	$master=compute_pass($master, $key);
     }
 
     $master=substr($master, 1, $length);
