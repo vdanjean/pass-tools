@@ -250,6 +250,7 @@ while($continue ge 0){
             open PIPE, "| xclip -verbose";
             print PIPE generate_pass($master);
             close(PIPE);
+            exit 0;
         }else{
             my $old=$SIG{INT};
             $SIG{INT} = sub { print "\n"; };
