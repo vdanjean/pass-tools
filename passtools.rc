@@ -30,6 +30,8 @@
     'INFOS' =>[
         '',
     ],
+    # Do not ask for infos
+    'noinfo' => 0,
     # The default length of your passwords
     'length' => 8,
     # Use batch mode by default (0|1)
