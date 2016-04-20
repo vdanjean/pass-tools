@@ -25,10 +25,13 @@
     # A list of domains you often connect to, will be used for completion
     'DOMAINS' =>[
         ''
-    ],    # A list of additional infos you often give to passtools, will be used for completion
+    ],
+    # A list of additional infos you often give to passtools, will be used for completion
     'INFOS' =>[
         '',
     ],
+    # Do not ask for infos
+    'noinfo' => 0,
     # The default length of your passwords
     'length' => 8,
     # Use batch mode by default (0|1)
@@ -39,4 +42,8 @@
     'visible' => 0,
     # Algorithm used for hash
     'algo' => "SHA-512",
+    # This key makes sure that knowing your master password is not enough to
+    # retrieve all your credential
+    # it should be a long random string that never go through the network
+    'key' => '',
 );

@@ -31,6 +31,9 @@ my $master;
 my $domain;
 my $user;
 my $info;
+my $noinfo = 0;
+my $key;
+my $nokey;
 my $algo="SHA-512";
 
 =pod
@@ -59,6 +62,12 @@ domain to target
 
 =item B<--info str>
 info to target
+
+=item B<--no-info str>
+do not ask for info
+
+=item B<--no-key>
+ignore key defined in ~/.passtools.rc (usefull for password update)
 
 =item B<--algo str>
 algo to use to hash the password (default to SHA-512)
@@ -137,6 +146,8 @@ sub readConf() {
     $twice=$CFG::CFG{'twice'};
     $visible=$CFG::CFG{'visible'};
     $algo=$CFG::CFG{'algo'};
+    $key=$CFG::CFG{'key'};
+    $noinfo=$CFG::CFG{'noinfo'};
 }
 migrateOldConf();
 readConf();
@@ -149,15 +160,17 @@ my $opts={
 	'domain' => \$domain,
 	'user' => \$user,
 	'info' => \$info,
+	'no-info' => \$noinfo,
 	'algo' => \$algo,
     'twice'=> \$twice,
     'batch' => \$batch,
     'visible' => \$visible,
+    'no-key' => \$nokey,
 };
 
 GetOptions($opts, 'help|h', 'man', 'length=i', 'master=s', 'rules=s',
-	'domain=s', 'info=s', 'algo=s', 'user=s', 'twice|t','batch|b', 'visible|v',
-	 ) or pod2usage(2);
+	'domain=s', 'info=s', 'no-info|I', 'algo=s', 'user=s', 'twice|t','batch|b',
+    'visible|v', 'no-key|K') or pod2usage(2);
 pod2usage(1) if $help;
 pod2usage(-exitval => 0, -verbose => 2) if $man;
 
@@ -212,8 +225,11 @@ sub generate_pass($){
     if (defined($domain)) {
     	$master=compute_pass($master, $domain);
     }
-    if (defined($info)) {
+    if ($noinfo eq 0 && defined($info)) {
     	$master=compute_pass($master, $info);
+    }
+    if (!defined($nokey) && defined($key) && $key ne '') {
+    	$master=compute_pass($master, $key);
     }
 
     $master=substr($master, 1, $length);
@@ -249,7 +265,9 @@ while($continue ge 0){
     if($user eq "" || $domain eq ""  || $continue > 0){
         $user=get_input($user, "Username", \@USERS);
         $domain=get_input($domain, "Domain", \@DOMAINS);
-        $info=get_input($info, "Info", \@INFOS);
+        if($noinfo eq 0){
+            $info=get_input($info, "Info", \@INFOS);
+        }
     }
     set_master();
     if($visible eq 0){
@@ -259,6 +277,7 @@ while($continue ge 0){
             open PIPE, "| xclip -verbose";
             print PIPE generate_pass($master);
             close(PIPE);
+            exit 0;
         }else{
             my $old=$SIG{INT};
             $SIG{INT} = sub { print "\n"; };
